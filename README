@@ -1,0 +1,13 @@
+spacman is a very simple wrapper around pacman, pacsearch and aria2c.
+
+Currently there are three modes:
+
+-Ss: 
+    passthrough to pacsearch
+-S [ y | u | c ]: 
+    calls pacman -S --print to get download urls,
+    then uses aria2c to download all packages and finally passes the original arguments through to pacman.
+Everything else:
+    passthrough to pacman
+
+In addition to python, reflector (from xyne-any) and aria2c is required.
