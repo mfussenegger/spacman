@@ -10,4 +10,6 @@ Currently there are three modes:
 Everything else:
     passthrough to pacman
 
-In addition to python, reflector (from xyne-any) and aria2c is required.
+In addition to python aria2c is required.
+
+If pacmatic is installed on the system, it will be used instead of regular pacman.

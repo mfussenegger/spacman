@@ -8,6 +8,9 @@ import subprocess
 from Reflector import MirrorStatus
 
 PACSEARCH = os.path.isfile('/usr/bin/pacsearch')
+PACMATIC = os.path.isfile('/usr/bin/pacmatic')
+
+pacman = PACMATIC and 'pacmatic' or 'pacman'
 
 
 def get_urls(operation, args_packages):
@@ -91,9 +94,9 @@ def main():
         for url in urls:
             aria2c(list(get_downloadurls(url, mirrors)))
 
-        retcode = subprocess.call(['pacman', operation.replace('y', '')] + args_packages)
+        retcode = subprocess.call([pacman, operation.replace('y', '')] + args_packages)
     else:
-        retcode = subprocess.call(['pacman'] + args_pacman)
+        retcode = subprocess.call([pacman] + args_pacman)
 
 if __name__ == '__main__':
     main()
