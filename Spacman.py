@@ -4,8 +4,20 @@
 import sys
 import os
 import re
-import subprocess
-from Reflector import MirrorStatus
+import logging
+from subprocess import Popen, PIPE, call
+try:
+    from Reflector import MirrorStatus
+    REFLECTOR = True
+    REPOS = MirrorStatus.REPOSITORIES
+    ARCHITECTURES = MirrorStatus.ARCHITECTURES
+except ImportError:
+    REFLECTOR = False
+    REPOS = ('community', 'core', 'extra', 'multilib')
+    ARCHITECTURES = ('i686', 'x86_64')
+
+
+logger = logging.getLogger('spacman')
 
 PACSEARCH = os.path.isfile('/usr/bin/pacsearch')
 PACMATIC = os.path.isfile('/usr/bin/pacmatic')
@@ -13,18 +25,26 @@ PACMATIC = os.path.isfile('/usr/bin/pacmatic')
 pacman = PACMATIC and 'pacmatic' or 'pacman'
 
 
-def get_urls(operation, args_packages):
-    proc = subprocess.Popen(['pacman', operation, '--print'] + args_packages,
-            shell=False, stdout=subprocess.PIPE)
+def get_urls(operation, packages):
+    """return one url for each package
+
+    operation: pacman operation; mostly -S
+    packages: list of packages to install/update
+    """
+
+    args = ['pacman', operation, '--print'] + packages
+    proc = Popen(args, shell=False, stdout=PIPE)
     result = proc.stdout.read().decode('utf-8').split(os.linesep)
-    urls = [x for x in result \
+    urls = [x for x in result
             if x.startswith('http') or x.startswith('ftp')]
     return urls
 
-def get_mirrors(use_reflector = False):
+
+def get_mirrors(use_reflector=REFLECTOR):
     if use_reflector:
         return get_mirrors_reflector()
     return get_mirrors_mirrorlist()
+
 
 def get_mirrors_reflector():
     ms = MirrorStatus()
@@ -32,44 +52,48 @@ def get_mirrors_reflector():
     mirrors = ms.sort(mirrors, 'age')
     mirrors = mirrors[:20]
     mirrors = ms.sort(mirrors, 'rate')
-    return [ MirrorStatus.MIRROR_URL_FORMAT.format(x['url'], '$repo', '$arch') for x in mirrors ]
+    return [MirrorStatus.MIRROR_URL_FORMAT.format(x['url'], '$repo', '$arch') for x in mirrors]
+
 
 def get_mirrors_mirrorlist():
     mirrors = []
     with open('/etc/pacman.d/mirrorlist', encoding='utf-8') as fi:
         for line in fi:
-            mirrors.append(line.rstrip())
-    return [x.strip('Server = ') for x in mirrors \
-            if x.startswith('Server =')]
+            line = line.strip()
+            if line.startswith('Server ='):
+                mirrors.append(line.strip('Server = '))
 
-#    proc = subprocess.Popen(['reflector', '-l', '20', '--sort', 'rate'],
-#            stdout=subprocess.PIPE)
-#    result = proc.stdout.read().decode('utf-8').split(os.linesep)
-#    mirrors = [x.strip('Server = ') for x in result \
-#            if x.startswith('Server = ')]
-#    return mirrors
+    return mirrors
+
 
 def get_downloadurls(url, mirrors):
     pattern = '^(http|ftp)://.*/(?P<repo>{0})/os/(?P<arch>{1})/(?P<pkgname>.*$)'.format(
-            '|'.join(MirrorStatus.REPOSITORIES),
-            '|'.join(MirrorStatus.ARCHITECTURES))
+        '|'.join(REPOS),
+        '|'.join(ARCHITECTURES))
+    logger.debug(pattern)
     m = re.search(pattern, url)
-    repo = m.group('repo')
-    arch = m.group('arch')
-    pkgname = m.group('pkgname')
-    for mirror in mirrors:
-        mirror = mirror.replace('$repo', repo)
-        mirror = mirror.replace('$arch', arch)
-        yield '{0}/{1}'.format(mirror, pkgname)
+
+    if m:
+        repo = m.group('repo')
+        arch = m.group('arch')
+        pkgname = m.group('pkgname')
+        for mirror in mirrors:
+            mirror = mirror.replace('$repo', repo)
+            mirror = mirror.replace('$arch', arch)
+            yield '{0}/{1}'.format(mirror, pkgname)
+    else:
+        yield url
+
 
 def aria2c(urls):
-    subprocess.call([
+    call([
         'aria2c',
         '--lowest-speed-limit=50K',
         '--continue',
         '--log-level=warn',
         '--max-concurrent-downloads=5',
         '--dir=/var/cache/pacman/pkg'] + urls)
+
 
 def main():
     args_pacman = sys.argv[1:]
@@ -83,20 +107,20 @@ def main():
 
     elif '-Ss' in operation:
         if PACSEARCH:
-            retcode = subprocess.call(['pacsearch'] + args_packages)
+            call(['pacsearch'] + args_packages)
         else:
-            retcode = subprocess.call(['pacman', '-Ss'] + args_packages)
+            call(['pacman', '-Ss'] + args_packages)
 
-    elif '-S' in operation and not ( \
+    elif '-S' in operation and not (
             'i' in operation or 'p' in operation):
         urls = get_urls(operation, args_packages)
         mirrors = get_mirrors()
         for url in urls:
             aria2c(list(get_downloadurls(url, mirrors)))
 
-        retcode = subprocess.call([pacman, operation.replace('y', '')] + args_packages)
+        call([pacman, operation.replace('y', '')] + args_packages)
     else:
-        retcode = subprocess.call([pacman] + args_pacman)
+        call([pacman] + args_pacman)
 
 if __name__ == '__main__':
     main()
