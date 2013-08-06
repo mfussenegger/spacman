@@ -1,24 +1,15 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 import sys
 import os
 import re
 import logging
 from subprocess import Popen, PIPE, call
-try:
-    from Reflector import MirrorStatus
-    REFLECTOR = True
-    REPOS = MirrorStatus.REPOSITORIES
-    ARCHITECTURES = MirrorStatus.ARCHITECTURES
-except ImportError:
-    REFLECTOR = False
-    REPOS = ('community', 'core', 'extra', 'multilib')
-    ARCHITECTURES = ('i686', 'x86_64')
-
 
 logger = logging.getLogger('spacman')
 
+REPOS = ('community', 'core', 'extra', 'multilib')
+ARCHITECTURES = ('i686', 'x86_64')
 PACSEARCH = os.path.isfile('/usr/bin/pacsearch')
 PACMATIC = os.path.isfile('/usr/bin/pacmatic')
 
@@ -35,35 +26,16 @@ def get_urls(operation, packages):
     args = ['pacman', operation, '--print'] + packages
     proc = Popen(args, shell=False, stdout=PIPE)
     result = proc.stdout.read().decode('utf-8').split(os.linesep)
-    urls = [x for x in result
-            if x.startswith('http') or x.startswith('ftp')]
-    return urls
+    return (x for x in result
+            if x.startswith('http') or x.startswith('ftp'))
 
 
-def get_mirrors(use_reflector=REFLECTOR):
-    if use_reflector:
-        return get_mirrors_reflector()
-    return get_mirrors_mirrorlist()
-
-
-def get_mirrors_reflector():
-    ms = MirrorStatus()
-    mirrors = ms.get_mirrors()
-    mirrors = ms.sort(mirrors, 'age')
-    mirrors = mirrors[:20]
-    mirrors = ms.sort(mirrors, 'rate')
-    return [MirrorStatus.MIRROR_URL_FORMAT.format(x['url'], '$repo', '$arch') for x in mirrors]
-
-
-def get_mirrors_mirrorlist():
-    mirrors = []
+def get_mirrors():
     with open('/etc/pacman.d/mirrorlist', encoding='utf-8') as fi:
-        for line in fi:
-            line = line.strip()
+        lines = (line.strip() for line in fi)
+        for line in lines:
             if line.startswith('Server ='):
-                mirrors.append(line.strip('Server = '))
-
-    return mirrors
+                yield line.strip('Server = ')
 
 
 def get_downloadurls(url, mirrors):
@@ -118,9 +90,10 @@ def main():
         for url in urls:
             aria2c(list(get_downloadurls(url, mirrors)))
 
-        call([pacman, operation.replace('y', '')] + args_packages)
+        call(['sudo', pacman, operation.replace('y', '')] + args_packages)
     else:
         call([pacman] + args_pacman)
+
 
 if __name__ == '__main__':
     main()
