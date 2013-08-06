@@ -67,16 +67,21 @@ def aria2c(urls):
         '--dir=/var/cache/pacman/pkg'] + urls)
 
 
+def usage(sys):
+    print('''{0} -S[ s | y | u |c ] package [package] ...
+          long option names are currently not supported (e.g. -S --info)
+          see pacman -h for more details.'''.format(sys.argv[0]))
+
+
 def main():
+    if len(sys.argv) < 2:
+        usage(sys)
+        return
     args_pacman = sys.argv[1:]
     args_packages = sys.argv[2:]
     operation = sys.argv[1]
     if '-h' in operation or '--help' in operation:
-        print('''{0} -S[ s | y | u |c ] package [package] ...
-
-                long option names are currently not supported (e.g. -S --info)
-                see pacman -h for more details.'''.format(sys.argv[0]))
-
+        usage(sys)
     elif '-Ss' in operation:
         if PACSEARCH:
             call(['pacsearch'] + args_packages)
