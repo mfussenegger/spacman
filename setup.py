@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='Spacman',
-    version='1.0.0',
+    version='1.0.2',
     description=('simple wrapper around pacman/pacsearch/aria2c '
                  'to improve file download speed'),
     author='Mathias Fussenegger',

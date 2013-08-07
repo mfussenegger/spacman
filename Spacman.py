@@ -91,7 +91,7 @@ def main():
     elif '-S' in operation and not (
             'i' in operation or 'p' in operation):
         urls = get_urls(operation, args_packages)
-        mirrors = get_mirrors()
+        mirrors = list(get_mirrors())
         for url in urls:
             aria2c(list(get_downloadurls(url, mirrors)))
 
